@@ -2049,14 +2049,16 @@ class Freeze_test : public beast::unit_test::suite
 
         if (modified)
         {
-            return affected[expectedArrayIndex][sfModifiedNode.fieldName]
-                           [sfFinalFields.fieldName][jss::Flags]
-                               .asUInt();
+            auto const node = affected[expectedArrayIndex][sfModifiedNode.fieldName];
+            if (!BEAST_EXPECT(node[sfLedgerEntryType.fieldName] == "RippleState"))
+                return 0;
+            return node[sfFinalFields.fieldName][jss::Flags].asUInt();
         }
-
-        return affected[expectedArrayIndex][sfCreatedNode.fieldName]
-                       [sfNewFields.fieldName][jss::Flags]
-                           .asUInt();
+        
+        auto const node = affected[expectedArrayIndex][sfCreatedNode.fieldName];
+        if (!BEAST_EXPECT(node[sfLedgerEntryType.fieldName] == "RippleState"))
+            return 0;
+        return node[sfNewFields.fieldName][jss::Flags].asUInt();
     }
 
     // Helper function that returns the index of the next check on account
