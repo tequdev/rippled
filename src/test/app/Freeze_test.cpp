@@ -2049,12 +2049,14 @@ class Freeze_test : public beast::unit_test::suite
 
         if (modified)
         {
-            auto const node = affected[expectedArrayIndex][sfModifiedNode.fieldName];
-            if (!BEAST_EXPECT(node[sfLedgerEntryType.fieldName] == "RippleState"))
+            auto const node =
+                affected[expectedArrayIndex][sfModifiedNode.fieldName];
+            if (!BEAST_EXPECT(
+                    node[sfLedgerEntryType.fieldName] == "RippleState"))
                 return 0;
             return node[sfFinalFields.fieldName][jss::Flags].asUInt();
         }
-        
+
         auto const node = affected[expectedArrayIndex][sfCreatedNode.fieldName];
         if (!BEAST_EXPECT(node[sfLedgerEntryType.fieldName] == "RippleState"))
             return 0;
