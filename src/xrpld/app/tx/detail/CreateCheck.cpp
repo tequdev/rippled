@@ -178,11 +178,22 @@ CreateCheck::doApply()
     // check the starting balance because we want to allow dipping into the
     // reserve to pay fees.
     {
-        STAmount const reserve{
-            view().fees().accountReserve(sle->getFieldU32(sfOwnerCount) + 1)};
+        uint32_t const ownerCount = sle->getFieldU32(sfOwnerCount);
+        auto const accountReserve =
+            view().fees().accountReserve(ownerCount + 1);
+        if (view().rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-        if (mPriorBalance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+            if (mPriorBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (mPriorBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
     }
 
     // Note that we use the value from the sequence or ticket as the

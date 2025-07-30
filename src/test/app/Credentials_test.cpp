@@ -586,7 +586,7 @@ struct Credentials_test : public beast::unit_test::suite
 
         {
             using namespace jtx;
-            Env env{*this, features};
+            Env env{*this, features - featureOwnerReserveExemption};
 
             auto const reserve = drops(env.current()->fees().accountReserve(0));
             env.fund(reserve, subject, issuer);
@@ -594,6 +594,25 @@ struct Credentials_test : public beast::unit_test::suite
 
             testcase("Credentials fail, not enough reserve.");
             {
+                auto const jv = credentials::create(subject, issuer, credType);
+                env(jv, ter(tecINSUFFICIENT_RESERVE));
+                env.close();
+            }
+        }
+
+        {
+            using namespace jtx;
+            Env env{*this, features | featureOwnerReserveExemption};
+
+            auto const reserve = drops(env.current()->fees().accountReserve(0));
+            env.fund(reserve, subject, issuer);
+            env.close();
+
+            testcase("Credentials fail, not enough reserve.");
+            {
+                env(credentials::create(subject, issuer, "a"), ter(tesSUCCESS));
+                env(credentials::create(subject, issuer, "b"), ter(tesSUCCESS));
+
                 auto const jv = credentials::create(subject, issuer, credType);
                 env(jv, ter(tecINSUFFICIENT_RESERVE));
                 env.close();
@@ -640,7 +659,7 @@ struct Credentials_test : public beast::unit_test::suite
         }
 
         {
-            Env env{*this, features};
+            Env env{*this, features - featureOwnerReserveExemption};
 
             env.fund(drops(env.current()->fees().accountReserve(1)), issuer);
             env.fund(drops(env.current()->fees().accountReserve(0)), subject);
@@ -651,6 +670,45 @@ struct Credentials_test : public beast::unit_test::suite
                 env(credentials::create(subject, issuer, credType));
                 env.close();
 
+                env(credentials::accept(subject, issuer, credType),
+                    ter(tecINSUFFICIENT_RESERVE));
+                env.close();
+
+                // check credential still present
+                auto const jle =
+                    credentials::ledgerEntry(env, subject, issuer, credType);
+                BEAST_EXPECT(
+                    jle.isObject() && jle.isMember(jss::result) &&
+                    !jle[jss::result].isMember(jss::error) &&
+                    jle[jss::result].isMember(jss::node) &&
+                    jle[jss::result][jss::node].isMember("LedgerEntryType") &&
+                    jle[jss::result][jss::node]["LedgerEntryType"] ==
+                        jss::Credential &&
+                    jle[jss::result][jss::node][jss::Issuer] ==
+                        issuer.human() &&
+                    jle[jss::result][jss::node][jss::Subject] ==
+                        subject.human() &&
+                    jle[jss::result][jss::node]["CredentialType"] ==
+                        strHex(std::string_view(credType)));
+            }
+        }
+
+        {
+            Env env{*this, features | featureOwnerReserveExemption};
+
+            env.fund(XRP(1000), issuer);
+            env.fund(drops(env.current()->fees().accountReserve(0)), subject);
+            env.close();
+
+            {
+                testcase("CredentialsAccept fail, not enough reserve.");
+                env(credentials::create(subject, issuer, "a"));
+                env(credentials::create(subject, issuer, "b"));
+                env(credentials::create(subject, issuer, credType));
+                env.close();
+
+                env(credentials::accept(subject, issuer, "a"), ter(tesSUCCESS));
+                env(credentials::accept(subject, issuer, "b"), ter(tesSUCCESS));
                 env(credentials::accept(subject, issuer, credType),
                     ter(tecINSUFFICIENT_RESERVE));
                 env.close();

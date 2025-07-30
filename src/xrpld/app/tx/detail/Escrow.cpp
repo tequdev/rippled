@@ -495,16 +495,27 @@ EscrowCreate::doApply()
     // Check reserve and funds availability
     STAmount const amount{ctx_.tx[sfAmount]};
 
-    auto const reserve =
-        ctx_.view().fees().accountReserve((*sle)[sfOwnerCount] + 1);
+    uint32_t const ownerCount = (*sle)[sfOwnerCount];
+    auto const accountReserve =
+        ctx_.view().fees().accountReserve(ownerCount + 1);
+    if (ctx_.view().rules().enabled(featureOwnerReserveExemption))
+    {
+        auto const requiredReserve =
+            ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-    if (mSourceBalance < reserve)
-        return tecINSUFFICIENT_RESERVE;
+        if (mSourceBalance < requiredReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
+    else
+    {
+        if (mSourceBalance < accountReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
 
     // Check reserve and funds availability
     if (isXRP(amount))
     {
-        if (mSourceBalance < reserve + STAmount(amount).xrp())
+        if (mSourceBalance < accountReserve + STAmount(amount).xrp())
             return tecUNFUNDED;
     }
 
@@ -963,10 +974,20 @@ escrowUnlockApplyHelper<MPTIssue>(
     if (!view.exists(keylet::mptoken(issuanceKey.key, receiver)) &&
         createAsset && !receiverIssuer)
     {
-        if (std::uint32_t const ownerCount = {sleDest->at(sfOwnerCount)};
-            xrpBalance < view.fees().accountReserve(ownerCount + 1))
+        uint32_t const ownerCount = sleDest->getFieldU32(sfOwnerCount);
+        auto const accountReserve = view.fees().accountReserve(ownerCount + 1);
+        if (view.rules().enabled(featureOwnerReserveExemption))
         {
-            return tecINSUFFICIENT_RESERVE;
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+            if (xrpBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (xrpBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
         }
 
         if (auto const ter =

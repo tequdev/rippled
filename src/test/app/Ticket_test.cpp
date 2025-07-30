@@ -24,6 +24,8 @@
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/jss.h>
 
+#include "test/jtx/Env.h"
+
 namespace ripple {
 
 class Ticket_test : public beast::unit_test::suite
@@ -565,19 +567,21 @@ class Ticket_test : public beast::unit_test::suite
     }
 
     void
-    testTicketInsufficientReserve()
+    testTicketInsufficientReserve(FeatureBitset features)
     {
         testcase("Create Ticket Insufficient Reserve");
 
         using namespace test::jtx;
-        Env env{*this};
+        Env env{*this, features};
         Account alice{"alice"};
 
         // Fund alice not quite enough to make the reserve for a Ticket.
         env.fund(env.current()->fees().accountReserve(1) - drops(1), alice);
         env.close();
 
-        env(ticket::create(alice, 1), ter(tecINSUFFICIENT_RESERVE));
+        env(ticket::create(
+                alice, features[featureOwnerReserveExemption] ? 3 : 1),
+            ter(tecINSUFFICIENT_RESERVE));
         env.close();
         env.require(owners(alice, 0), tickets(alice, 0));
 
@@ -989,10 +993,12 @@ public:
     void
     run() override
     {
+        auto all = test::jtx::testable_amendments();
         testTicketNotEnabled();
         testTicketCreatePreflightFail();
         testTicketCreatePreclaimFail();
-        testTicketInsufficientReserve();
+        testTicketInsufficientReserve(all);
+        testTicketInsufficientReserve(all - featureOwnerReserveExemption);
         testUsingTickets();
         testTransactionDatabaseWithTickets();
         testSignWithTicketSequence();

@@ -1063,11 +1063,23 @@ applyCreateAccountAttestations(
 
             // Check reserve
             auto const balance = (*sleDoor)[sfBalance];
-            auto const reserve =
-                psb.fees().accountReserve((*sleDoor)[sfOwnerCount] + 1);
 
-            if (balance < reserve)
-                return Unexpected(tecINSUFFICIENT_RESERVE);
+            uint32_t const ownerCount = (*sleDoor)[sfOwnerCount];
+            auto const accountReserve =
+                psb.fees().accountReserve(ownerCount + 1);
+            if (psb.rules().enabled(featureOwnerReserveExemption))
+            {
+                auto const requiredReserve =
+                    ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+                if (balance < requiredReserve)
+                    return Unexpected(tecINSUFFICIENT_RESERVE);
+            }
+            else
+            {
+                if (balance < accountReserve)
+                    return Unexpected(tecINSUFFICIENT_RESERVE);
+            }
         }
 
         std::vector<Attestations::AttestationCreateAccount> atts;

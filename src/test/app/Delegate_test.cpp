@@ -241,17 +241,33 @@ class Delegate_test : public beast::unit_test::suite
         testcase("test reserve");
         using namespace jtx;
 
+        auto const all = test::jtx::testable_amendments();
+
         // test reserve for DelegateSet
+        for (FeatureBitset features :
+             {all - featureOwnerReserveExemption,
+              all | featureOwnerReserveExemption})
         {
-            Env env(*this);
+            Env env(*this, features);
             Account alice{"alice"};
             Account bob{"bob"};
             Account carol{"carol"};
+            Account dave{"dave"};
+            Account eve{"eve"};
 
             env.fund(drops(env.current()->fees().accountReserve(0)), alice);
             env.fund(
                 drops(env.current()->fees().accountReserve(1)), bob, carol);
+            env.fund(XRP(1000), dave, eve);
             env.close();
+
+            if (features[featureOwnerReserveExemption])
+            {
+                env(delegate::set(alice, dave, {"Payment"}), ter(tesSUCCESS));
+                env(delegate::set(alice, eve, {"Payment"}), ter(tesSUCCESS));
+                env.require(owners(alice, 2));
+                env.close();
+            }
 
             // alice does not have enough reserve to create Delegate
             env(delegate::set(alice, bob, {"Payment"}),
@@ -261,6 +277,13 @@ class Delegate_test : public beast::unit_test::suite
             env(delegate::set(bob, alice, {"Payment"}));
             env.close();
 
+            if (features[featureOwnerReserveExemption])
+            {
+                env(delegate::set(bob, dave, {"Payment"}), ter(tesSUCCESS));
+                env.require(owners(bob, 2));
+                env.close();
+            }
+
             // now bob create another Delegate, he does not have
             // enough reserve
             env(delegate::set(bob, carol, {"Payment"}),
@@ -268,8 +291,11 @@ class Delegate_test : public beast::unit_test::suite
         }
 
         // test reserve when sending transaction on behalf of other account
+        for (FeatureBitset features :
+             {all - featureOwnerReserveExemption,
+              all | featureOwnerReserveExemption})
         {
-            Env env(*this);
+            Env env(*this, features);
             Account alice{"alice"};
             Account bob{"bob"};
 
@@ -278,8 +304,17 @@ class Delegate_test : public beast::unit_test::suite
             env.close();
 
             // alice gives bob permission
-            env(delegate::set(alice, bob, {"DIDSet", "DIDDelete"}));
+            env(delegate::set(
+                alice, bob, {"TicketCreate", "DIDSet", "DIDDelete"}));
             env.close();
+
+            if (features[featureOwnerReserveExemption])
+            {
+                env(ticket::create(alice, 1),
+                    delegate::as(bob),
+                    ter(tesSUCCESS));
+                env.require(owners(alice, 2));
+            }
 
             // bob set DID on behalf of alice, but alice does not have enough
             // reserve

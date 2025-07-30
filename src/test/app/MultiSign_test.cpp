@@ -22,6 +22,8 @@
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/jss.h>
 
+#include "test/jtx/Env.h"
+
 namespace ripple {
 namespace test {
 
@@ -68,7 +70,7 @@ public:
         testcase("No Reserve");
 
         using namespace jtx;
-        Env env{*this, features};
+        Env env{*this, features - featureOwnerReserveExemption};
         Account const alice{"alice", KeyType::secp256k1};
 
         // The reserve required for a signer list changes with the passage
@@ -130,6 +132,41 @@ public:
         env(signers(alice, jtx::none));
         env.close();
         env.require(owners(alice, 0));
+
+        auto const all =
+            test::jtx::testable_amendments() | featureMultiSignReserve;
+        for (FeatureBitset const& features :
+             {all, all - featureOwnerReserveExemption})
+        {
+            Env env{*this, features};
+            Account const alice{"alice", KeyType::secp256k1};
+            env.fund(env.current()->fees().accountReserve(0), alice);
+            env.close();
+            if (features[featureOwnerReserveExemption])
+            {
+                env.require(owners(alice, 0));
+                env(signers(alice, 1, {{bogie, 1}}), ter(tesSUCCESS));
+                env(signers(alice, jtx::none));
+                env.close();
+
+                env(ticket::create(alice, 1));
+                env.require(owners(alice, 1));
+                env(signers(alice, 1, {{bogie, 1}}), ter(tesSUCCESS));
+                env(signers(alice, jtx::none));
+                env.close();
+
+                env(ticket::create(alice, 1));
+                env.require(owners(alice, 2));
+                env(signers(alice, 1, {{bogie, 1}}),
+                    ter(tecINSUFFICIENT_RESERVE));
+            }
+            else
+            {
+                env.require(owners(alice, 0));
+                env(signers(alice, 1, {{bogie, 1}}),
+                    ter(tecINSUFFICIENT_RESERVE));
+            }
+        }
     }
 
     void

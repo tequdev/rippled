@@ -523,7 +523,7 @@ class PermissionedDomains_test : public beast::unit_test::suite
 
         using namespace test::jtx;
 
-        Env env(*this, withFeature_);
+        Env env(*this, withFeature_ - featureOwnerReserveExemption);
         Account const alice("alice");
 
         // Fund alice enough to exist, but not enough to meet
@@ -564,6 +564,29 @@ class PermissionedDomains_test : public beast::unit_test::suite
         env(pdomain::setTx(alice, credentials));
         env.close();
         BEAST_EXPECT(env.ownerCount(alice) == 1);
+
+        {
+            Env env(*this, withFeature_ | featureOwnerReserveExemption);
+            Account const alice("alice");
+            env.fund(env.current()->fees().accountReserve(0), alice);
+
+            env.require(owners(alice, 0));
+            env(pdomain::setTx(alice, credentials), ter(tesSUCCESS));
+            env(pdomain::deleteTx(alice, pdomain::getNewDomain(env.meta())));
+            env.close();
+
+            env(ticket::create(alice, 1));
+            env.require(owners(alice, 1));
+            env(pdomain::setTx(alice, credentials), ter(tesSUCCESS));
+            env(pdomain::deleteTx(alice, pdomain::getNewDomain(env.meta())));
+            env.close();
+
+            env(ticket::create(alice, 1));
+            env.require(owners(alice, 2));
+            env(pdomain::setTx(alice, credentials),
+                ter(tecINSUFFICIENT_RESERVE));
+            env.close();
+        }
     }
 
 public:

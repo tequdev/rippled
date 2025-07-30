@@ -92,11 +92,24 @@ CreateTicket::doApply()
     // reserve to pay fees.
     std::uint32_t const ticketCount = ctx_.tx[sfTicketCount];
     {
-        XRPAmount const reserve = view().fees().accountReserve(
-            sleAccountRoot->getFieldU32(sfOwnerCount) + ticketCount);
+        uint32_t const ownerCount = sleAccountRoot->at(sfOwnerCount);
 
-        if (mPriorBalance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        if (view().rules().enabled(featureOwnerReserveExemption))
+        {
+            XRPAmount const reserve = (ownerCount + ticketCount) <= 2
+                ? XRPAmount(beast::zero)
+                : view().fees().accountReserve(ownerCount + ticketCount);
+
+            if (mPriorBalance < reserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            XRPAmount const reserve =
+                view().fees().accountReserve(ownerCount + ticketCount);
+            if (mPriorBalance < reserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
     }
 
     beast::Journal viewJ{ctx_.app.journal("View")};

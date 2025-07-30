@@ -52,7 +52,10 @@ private:
 
         // Insufficient reserve
         {
-            Env env(*this);
+            Env env(
+                *this,
+                test::jtx::testable_amendments() -
+                    featureOwnerReserveExemption);
             env.fund(env.current()->fees().accountReserve(0), owner);
             Oracle oracle(
                 env,
@@ -60,9 +63,36 @@ private:
                  .fee = static_cast<int>(env.current()->fees().base.drops()),
                  .err = ter(tecINSUFFICIENT_RESERVE)});
         }
+        {
+            Env env(
+                *this,
+                test::jtx::testable_amendments() |
+                    featureOwnerReserveExemption);
+            env.fund(env.current()->fees().accountReserve(0), owner);
+
+            env.require(owners(owner, 0));
+            Oracle oracle1(env, {.owner = owner, .err = ter(tesSUCCESS)});
+            oracle1.remove({});
+            env.close();
+
+            env(ticket::create(owner, 1));
+            env.require(owners(owner, 1));
+            Oracle oracle2(env, {.owner = owner, .err = ter(tesSUCCESS)});
+            oracle2.remove({});
+            env.close();
+
+            env(ticket::create(owner, 1));
+            env.require(owners(owner, 2));
+            Oracle oracle3(
+                env, {.owner = owner, .err = ter(tecINSUFFICIENT_RESERVE)});
+            env.close();
+        }
         // Insufficient reserve if the data series extends to greater than 5
         {
-            Env env(*this);
+            Env env(
+                *this,
+                test::jtx::testable_amendments() -
+                    featureOwnerReserveExemption);
             env.fund(
                 env.current()->fees().accountReserve(1) +
                     env.current()->fees().base * 2,
@@ -83,6 +113,56 @@ private:
                     },
                 .fee = static_cast<int>(env.current()->fees().base.drops()),
                 .err = ter(tecINSUFFICIENT_RESERVE)});
+        }
+        {
+            Env env(
+                *this,
+                test::jtx::testable_amendments() |
+                    featureOwnerReserveExemption);
+            env.fund(
+                env.current()->fees().accountReserve(1) +
+                    env.current()->fees().base * 2,
+                owner);
+
+            Oracle oracle1(
+                env,
+                {.owner = owner,
+                 .fee = static_cast<int>(env.current()->fees().base.drops())});
+            BEAST_EXPECT(oracle1.exists());
+            env.require(owners(owner, 1));
+            oracle1.set(UpdateArg{
+                .series =
+                    {
+                        {"XRP", "EUR", 740, 1},
+                        {"XRP", "GBP", 740, 1},
+                        {"XRP", "CNY", 740, 1},
+                        {"XRP", "CAD", 740, 1},
+                        {"XRP", "AUD", 740, 1},
+                    },
+                .fee = static_cast<int>(env.current()->fees().base.drops()),
+                .err = ter(tesSUCCESS)});
+            oracle1.remove({});
+            env.close();
+
+            Oracle oracle2(
+                env,
+                {.owner = owner,
+                 .fee = static_cast<int>(env.current()->fees().base.drops())});
+            BEAST_EXPECT(oracle2.exists());
+            env(ticket::create(owner, 1));
+            env.require(owners(owner, 2));
+            oracle2.set(UpdateArg{
+                .series =
+                    {
+                        {"XRP", "EUR", 740, 1},
+                        {"XRP", "GBP", 740, 1},
+                        {"XRP", "CNY", 740, 1},
+                        {"XRP", "CAD", 740, 1},
+                        {"XRP", "AUD", 740, 1},
+                    },
+                .fee = static_cast<int>(env.current()->fees().base.drops()),
+                .err = ter(tecINSUFFICIENT_RESERVE)});
+            env.close();
         }
 
         {

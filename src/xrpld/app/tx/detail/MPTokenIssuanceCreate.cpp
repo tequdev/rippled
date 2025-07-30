@@ -92,10 +92,21 @@ MPTokenIssuanceCreate::create(
     if (!acct)
         return Unexpected(tecINTERNAL);  // LCOV_EXCL_LINE
 
-    if (args.priorBalance &&
-        *(args.priorBalance) <
-            view.fees().accountReserve((*acct)[sfOwnerCount] + 1))
-        return Unexpected(tecINSUFFICIENT_RESERVE);
+    uint32_t const ownerCount = (*acct)[sfOwnerCount];
+    auto const accountReserve = view.fees().accountReserve(ownerCount + 1);
+    if (view.rules().enabled(featureOwnerReserveExemption))
+    {
+        auto const requiredReserve =
+            ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+        if (*(args.priorBalance) < requiredReserve)
+            return Unexpected(tecINSUFFICIENT_RESERVE);
+    }
+    else
+    {
+        if (*(args.priorBalance) < accountReserve)
+            return Unexpected(tecINSUFFICIENT_RESERVE);
+    }
 
     auto const mptId = makeMptID(args.sequence, args.account);
     auto const mptIssuanceKeylet = keylet::mptIssuance(mptId);

@@ -1083,6 +1083,7 @@ class Vault_test : public beast::unit_test::suite
                      Account const& depositor,
                      Asset const& asset,
                      Vault& vault) {
+            env.disableFeature(featureOwnerReserveExemption);
             auto [tx, keylet] = vault.create({.owner = owner, .asset = asset});
             testcase("insufficient reserve");
             // It is possible to construct a complicated mathematical
@@ -1090,6 +1091,49 @@ class Vault_test : public beast::unit_test::suite
             env(pay(owner, issuer, XRP(775)));
             env.close();
             env(tx, ter(tecINSUFFICIENT_RESERVE));
+        });
+
+        testCase([this](
+                     Env& env,
+                     Account const& issuer,
+                     Account const& owner,
+                     Account const& depositor,
+                     Asset const& asset,
+                     Vault& vault) {
+            env.enableFeature(featureOwnerReserveExemption);
+            testcase("insufficient reserve");
+            // It is possible to construct a complicated mathematical
+            // expression for this amount, but it is sadly not easy.
+            env(pay(owner, issuer, XRP(775)));
+            env.close();
+            {
+                auto [createtx, keylet] =
+                    vault.create({.owner = owner, .asset = asset});
+                auto deltx = vault.del({.owner = owner, .id = keylet.key});
+                env.require(owners(owner, 0));
+                env(createtx, ter(tesSUCCESS));
+                env(deltx);
+                env.close();
+            }
+            {
+                env(ticket::create(owner, 1));
+                auto [createtx, keylet] =
+                    vault.create({.owner = owner, .asset = asset});
+                auto deltx = vault.del({.owner = owner, .id = keylet.key});
+                env.require(owners(owner, 1));
+                env(createtx, ter(tesSUCCESS));
+                env(deltx);
+                env.close();
+            }
+            {
+                env(ticket::create(owner, 1));
+                auto [createtx, keylet] =
+                    vault.create({.owner = owner, .asset = asset});
+                auto deltx = vault.del({.owner = owner, .id = keylet.key});
+                env.require(owners(owner, 2));
+                env(createtx, ter(tecINSUFFICIENT_RESERVE));
+                env.close();
+            }
         });
 
         testCase([this](

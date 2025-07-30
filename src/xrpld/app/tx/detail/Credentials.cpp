@@ -149,10 +149,22 @@ CredentialCreate::doApply()
         return tefINTERNAL;
 
     {
-        STAmount const reserve{view().fees().accountReserve(
-            sleIssuer->getFieldU32(sfOwnerCount) + 1)};
-        if (mPriorBalance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        uint32_t const ownerCount = sleIssuer->getFieldU32(sfOwnerCount);
+        auto const accountReserve =
+            view().fees().accountReserve(ownerCount + 1);
+        if (view().rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+            if (mPriorBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (mPriorBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
     }
 
     sleCred->setAccountID(sfSubject, subject);
@@ -371,10 +383,22 @@ CredentialAccept::doApply()
         return tefINTERNAL;
 
     {
-        STAmount const reserve{view().fees().accountReserve(
-            sleSubject->getFieldU32(sfOwnerCount) + 1)};
-        if (mPriorBalance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        uint32_t const ownerCount = sleSubject->getFieldU32(sfOwnerCount);
+        auto const accountReserve =
+            view().fees().accountReserve(ownerCount + 1);
+        if (view().rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+            if (mPriorBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (mPriorBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
     }
 
     auto const credType(ctx_.tx[sfCredentialType]);

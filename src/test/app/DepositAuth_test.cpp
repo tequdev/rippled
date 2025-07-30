@@ -502,7 +502,9 @@ struct DepositPreauth_test : public beast::unit_test::suite
         Account const becky{"becky"};
         Account const carol{"carol"};
 
-        Env env(*this);
+        Env env(
+            *this,
+            test::jtx::testable_amendments() - featureOwnerReserveExemption);
 
         // Tell env about alice, becky and carol since they are not yet funded.
         env.memoize(alice);
@@ -568,7 +570,7 @@ struct DepositPreauth_test : public beast::unit_test::suite
         env.require(owners(becky, 0));
 
         // carol attempts to preauthorize but doesn't have enough reserve.
-        env.fund(drops(249'999'999), carol);
+        env.fund(drops(env.current()->fees().accountReserve(1) - 1), carol);
         env.close();
 
         env(deposit::auth(carol, becky), ter(tecINSUFFICIENT_RESERVE));
@@ -608,6 +610,41 @@ struct DepositPreauth_test : public beast::unit_test::suite
         env.close();
         env.require(owners(alice, 0));
         env.require(owners(becky, 0));
+
+        {
+            testcase("OwnerReserveExemption");
+
+            using namespace jtx;
+            Account const alice{"alice"};
+            Account const becky{"becky"};
+            Account const carol{"carol"};
+            Account const dave{"dave"};
+
+            auto const features = test::jtx::testable_amendments();
+            for (FeatureBitset features :
+                 {features - featureOwnerReserveExemption,
+                  features | featureOwnerReserveExemption})
+            {
+                Env env(*this, features);
+
+                env.fund(env.current()->fees().accountReserve(0), alice);
+                env.fund(XRP(10000), becky, carol, dave);
+                env.close();
+
+                if (features[featureOwnerReserveExemption])
+                {
+                    env(deposit::auth(alice, becky), ter(tesSUCCESS));
+                    env(deposit::auth(alice, carol), ter(tesSUCCESS));
+                    env(deposit::auth(alice, dave),
+                        ter(tecINSUFFICIENT_RESERVE));
+                }
+                else
+                {
+                    env(deposit::auth(alice, becky),
+                        ter(tecINSUFFICIENT_RESERVE));
+                }
+            }
+        }
     }
 
     void
@@ -1130,10 +1167,29 @@ struct DepositPreauth_test : public beast::unit_test::suite
 
             {
                 // not enough reserve
+                env.disableFeature(featureOwnerReserveExemption);
                 Account const john{"john"};
                 env.fund(env.current()->fees().accountReserve(0), john);
                 env.close();
                 auto jv = deposit::authCredentials(john, {{issuer, credType}});
+                env(jv, ter(tecINSUFFICIENT_RESERVE));
+            }
+
+            {
+                // not enough reserve
+                env.enableFeature(featureOwnerReserveExemption);
+                Account const jane{"jane"};
+                env.fund(env.current()->fees().accountReserve(0), jane);
+                env.close();
+
+                env(deposit::authCredentials(jane, {{issuer, "1"}}),
+                    ter(tesSUCCESS));
+                env(deposit::authCredentials(jane, {{issuer, "2"}}),
+                    ter(tesSUCCESS));
+                env.close();
+                env.require(owners(jane, 2));
+
+                auto jv = deposit::authCredentials(jane, {{issuer, credType}});
                 env(jv, ter(tecINSUFFICIENT_RESERVE));
             }
 

@@ -203,13 +203,25 @@ PayChanCreate::preclaim(PreclaimContext const& ctx)
     // Check reserve and funds availability
     {
         auto const balance = (*sle)[sfBalance];
-        auto const reserve =
-            ctx.view.fees().accountReserve((*sle)[sfOwnerCount] + 1);
 
-        if (balance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        uint32_t const ownerCount = (*sle)[sfOwnerCount];
+        auto const accountReserve =
+            ctx.view.fees().accountReserve(ownerCount + 1);
+        if (ctx.view.rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-        if (balance < reserve + ctx.tx[sfAmount])
+            if (balance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (balance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+
+        if (balance < accountReserve + ctx.tx[sfAmount])
             return tecUNFUNDED;
     }
 
@@ -388,13 +400,25 @@ PayChanFund::doApply()
     {
         // Check reserve and funds availability
         auto const balance = (*sle)[sfBalance];
-        auto const reserve =
-            ctx_.view().fees().accountReserve((*sle)[sfOwnerCount]);
 
-        if (balance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        uint32_t const ownerCount = (*sle)[sfOwnerCount];
+        auto const accountReserve =
+            ctx_.view().fees().accountReserve(ownerCount + 1);
+        if (ctx_.view().rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-        if (balance < reserve + ctx_.tx[sfAmount])
+            if (mPriorBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (mPriorBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+
+        if (balance < accountReserve + ctx_.tx[sfAmount])
             return tecUNFUNDED;
     }
 

@@ -365,14 +365,24 @@ SetSignerList::replaceSignerList()
         flags = 0;
     }
 
-    XRPAmount const newReserve{
-        view().fees().accountReserve(oldOwnerCount + addedOwnerCount)};
-
     // We check the reserve against the starting balance because we want to
     // allow dipping into the reserve to pay fees.  This behavior is consistent
     // with CreateTicket.
-    if (mPriorBalance < newReserve)
-        return tecINSUFFICIENT_RESERVE;
+    uint32_t const ownerCountAfter = oldOwnerCount + addedOwnerCount;
+    auto const accountReserve = view().fees().accountReserve(ownerCountAfter);
+    if (view().rules().enabled(featureOwnerReserveExemption))
+    {
+        auto const requiredReserve =
+            ownerCountAfter <= 2 ? XRPAmount(beast::zero) : accountReserve;
+
+        if (mPriorBalance < requiredReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
+    else
+    {
+        if (mPriorBalance < accountReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
 
     // Everything's ducky.  Add the ltSIGNER_LIST to the ledger.
     auto signerList = std::make_shared<SLE>(signerListKeylet);

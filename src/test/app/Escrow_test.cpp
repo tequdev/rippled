@@ -470,11 +470,35 @@ struct Escrow_test : public beast::unit_test::suite
             env(escrow::create("evan", "bob", XRP(50)),
                 escrow::finish_time(env.now() + 1s),
                 ter(tecUNFUNDED));
+            {
+                env.disableFeature(featureOwnerReserveExemption);
+                env.fund(accountReserve, "frank");
+                env(escrow::create("frank", "bob", XRP(1)),
+                    escrow::finish_time(env.now() + 1s),
+                    ter(tecINSUFFICIENT_RESERVE));
+            }
+            {
+                env.enableFeature(featureOwnerReserveExemption);
+                env.fund(
+                    accountReserve + (env.current()->fees().base * 2 + 3),
+                    "george");
 
-            env.fund(accountReserve, "frank");
-            env(escrow::create("frank", "bob", XRP(1)),
-                escrow::finish_time(env.now() + 1s),
-                ter(tecINSUFFICIENT_RESERVE));
+                env(escrow::create("george", "bob", drops(1)),
+                    escrow::finish_time(env.now() + 1s),
+                    ter(tecUNFUNDED));
+
+                env(ticket::create("george", 1));
+                env.require(owners("george", 1));
+                env(escrow::create("george", "bob", drops(1)),
+                    escrow::finish_time(env.now() + 1s),
+                    ter(tecUNFUNDED));
+
+                env(ticket::create("george", 1));
+                env.require(owners("george", 2));
+                env(escrow::create("george", "bob", drops(1)),
+                    escrow::finish_time(env.now() + 1s),
+                    ter(tecINSUFFICIENT_RESERVE));
+            }
         }
 
         {  // Specify incorrect sequence number

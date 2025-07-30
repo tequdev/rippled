@@ -174,11 +174,22 @@ DepositPreauth::doApply()
         // check the starting balance because we want to allow dipping into the
         // reserve to pay fees.
         {
-            STAmount const reserve{view().fees().accountReserve(
-                sleOwner->getFieldU32(sfOwnerCount) + 1)};
+            uint32_t const ownerCount = sleOwner->getFieldU32(sfOwnerCount);
+            auto const accountReserve =
+                view().fees().accountReserve(ownerCount + 1);
+            if (view().rules().enabled(featureOwnerReserveExemption))
+            {
+                auto const requiredReserve =
+                    ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-            if (mPriorBalance < reserve)
-                return tecINSUFFICIENT_RESERVE;
+                if (mPriorBalance < requiredReserve)
+                    return tecINSUFFICIENT_RESERVE;
+            }
+            else
+            {
+                if (mPriorBalance < accountReserve)
+                    return tecINSUFFICIENT_RESERVE;
+            }
         }
 
         // Preclaim already verified that the Preauth entry does not yet exist.
@@ -225,11 +236,23 @@ DepositPreauth::doApply()
         // check the starting balance because we want to allow dipping into the
         // reserve to pay fees.
         {
-            STAmount const reserve{view().fees().accountReserve(
-                sleOwner->getFieldU32(sfOwnerCount) + 1)};
+            uint32_t const ownerCount = sleOwner->getFieldU32(sfOwnerCount);
+            auto const accountReserve =
+                view().fees().accountReserve(ownerCount + 1);
 
-            if (mPriorBalance < reserve)
-                return tecINSUFFICIENT_RESERVE;
+            if (view().rules().enabled(featureOwnerReserveExemption))
+            {
+                auto const requiredReserve =
+                    ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+                if (mPriorBalance < requiredReserve)
+                    return tecINSUFFICIENT_RESERVE;
+            }
+            else
+            {
+                if (mPriorBalance < accountReserve)
+                    return tecINSUFFICIENT_RESERVE;
+            }
         }
 
         // Preclaim already verified that the Preauth entry does not yet exist.

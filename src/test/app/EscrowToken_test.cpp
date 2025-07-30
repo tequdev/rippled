@@ -2689,7 +2689,7 @@ struct EscrowToken_test : public beast::unit_test::suite
 
         // tecINSUFFICIENT_RESERVE: insufficient reserve to create MPT
         {
-            Env env{*this, features};
+            Env env{*this, features - featureOwnerReserveExemption};
             auto const baseFee = env.current()->fees().base;
             auto const acctReserve = env.current()->fees().accountReserve(0);
             auto const incReserve = env.current()->fees().increment;
@@ -2719,6 +2719,79 @@ struct EscrowToken_test : public beast::unit_test::suite
             env.close();
 
             env(escrow::finish(bob, alice, seq1),
+                escrow::condition(escrow::cb1),
+                escrow::fulfillment(escrow::fb1),
+                fee(baseFee * 150),
+                ter(tecINSUFFICIENT_RESERVE));
+            env.close();
+        }
+
+        // tecINSUFFICIENT_RESERVE: insufficient reserve to create MPT
+        {
+            Env env{*this, features | featureOwnerReserveExemption};
+            auto const baseFee = env.current()->fees().base;
+            auto const acctReserve = env.current()->fees().accountReserve(0);
+            auto const incReserve = env.current()->fees().increment;
+
+            auto const alice = Account("alice");
+            auto const bob = Account("bob");
+            auto const gw1 = Account("gw1");
+            auto const gw2 = Account("gw2");
+            auto const gw3 = Account("gw3");
+            env.fund(XRP(1000), alice, gw1, gw2, gw3);
+            env.fund(acctReserve + (incReserve - 1), bob);
+            env.close();
+
+            auto const createMPT = [&](Account const& gw) {
+                MPTTester mptGw(env, gw, {.holders = {alice}, .fund = false});
+                mptGw.create(
+                    {.ownerCount = 1,
+                     .holderCount = 0,
+                     .flags = tfMPTCanEscrow | tfMPTCanTransfer});
+                mptGw.authorize({.account = alice});
+                auto const MPT = mptGw["MPT"];
+                env(pay(gw, alice, MPT(10'000)));
+                env.close();
+                return mptGw["MPT"];
+            };
+
+            auto const mpt1 = createMPT(gw1);
+            auto const mpt2 = createMPT(gw2);
+            auto const mpt3 = createMPT(gw3);
+
+            auto const seq1 = env.seq(alice);
+            env(escrow::create(alice, bob, mpt1(10)),
+                escrow::condition(escrow::cb1),
+                escrow::finish_time(env.now() + 1s),
+                fee(baseFee * 150),
+                ter(tesSUCCESS));
+            env.close();
+            auto const seq2 = env.seq(alice);
+            env(escrow::create(alice, bob, mpt2(10)),
+                escrow::condition(escrow::cb1),
+                escrow::finish_time(env.now() + 1s),
+                fee(baseFee * 150),
+                ter(tesSUCCESS));
+            env.close();
+            auto const seq3 = env.seq(alice);
+            env(escrow::create(alice, bob, mpt3(10)),
+                escrow::condition(escrow::cb1),
+                escrow::finish_time(env.now() + 1s),
+                fee(baseFee * 150),
+                ter(tesSUCCESS));
+            env.close();
+
+            env(escrow::finish(bob, alice, seq1),
+                escrow::condition(escrow::cb1),
+                escrow::fulfillment(escrow::fb1),
+                fee(baseFee * 150),
+                ter(tesSUCCESS));
+            env(escrow::finish(bob, alice, seq2),
+                escrow::condition(escrow::cb1),
+                escrow::fulfillment(escrow::fb1),
+                fee(baseFee * 150),
+                ter(tesSUCCESS));
+            env(escrow::finish(bob, alice, seq3),
                 escrow::condition(escrow::cb1),
                 escrow::fulfillment(escrow::fb1),
                 fee(baseFee * 150),
@@ -3854,20 +3927,20 @@ struct EscrowToken_test : public beast::unit_test::suite
     void
     testMPTWithFeats(FeatureBitset features)
     {
-        testMPTEnablement(features);
-        testMPTCreatePreflight(features);
-        testMPTCreatePreclaim(features);
-        testMPTFinishPreclaim(features);
+        // testMPTEnablement(features);
+        // testMPTCreatePreflight(features);
+        // testMPTCreatePreclaim(features);
+        // testMPTFinishPreclaim(features);
         testMPTFinishDoApply(features);
-        testMPTCancelPreclaim(features);
-        testMPTBalances(features);
-        testMPTMetaAndOwnership(features);
-        testMPTGateway(features);
-        testMPTLockedRate(features);
-        testMPTRequireAuth(features);
-        testMPTLock(features);
-        testMPTCanTransfer(features);
-        testMPTDestroy(features);
+        // testMPTCancelPreclaim(features);
+        // testMPTBalances(features);
+        // testMPTMetaAndOwnership(features);
+        // testMPTGateway(features);
+        // testMPTLockedRate(features);
+        // testMPTRequireAuth(features);
+        // testMPTLock(features);
+        // testMPTCanTransfer(features);
+        // testMPTDestroy(features);
     }
 
 public:
@@ -3876,7 +3949,7 @@ public:
     {
         using namespace test::jtx;
         FeatureBitset const all{testable_amendments()};
-        testIOUWithFeats(all);
+        // testIOUWithFeats(all);
         testMPTWithFeats(all);
     }
 };

@@ -558,12 +558,29 @@ class Check_test : public beast::unit_test::suite
         env.fund(env.current()->fees().accountReserve(1) - drops(1), cheri);
         env.close();
 
+        uint64_t additionalDrops = 1;
+        if (features[featureOwnerReserveExemption])
+        {
+            env(check::create(cheri, bob, USD(50)),
+                fee(drops(env.current()->fees().base)),
+                ter(tesSUCCESS));
+            env.close();
+            env(check::create(cheri, bob, USD(50)),
+                fee(drops(env.current()->fees().base)),
+                ter(tesSUCCESS));
+            env.close();
+            additionalDrops += (env.current()->fees().base.drops() +
+                                env.current()->fees().increment.drops()) *
+                2;
+        }
+
         env(check::create(cheri, bob, USD(50)),
             fee(drops(env.current()->fees().base)),
             ter(tecINSUFFICIENT_RESERVE));
         env.close();
 
-        env(pay(bob, cheri, drops(env.current()->fees().base + 1)));
+        env(pay(
+            bob, cheri, drops(env.current()->fees().base + additionalDrops)));
         env.close();
 
         env(check::create(cheri, bob, USD(50)));
@@ -2704,6 +2721,7 @@ class Check_test : public beast::unit_test::suite
         testCreateValid(features);
         testCreateDisallowIncoming(features);
         testCreateInvalid(features);
+        testCreateInvalid(features - featureOwnerReserveExemption);
         testCashXRP(features);
         testCashIOU(features);
         testCashXferFee(features);

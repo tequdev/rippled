@@ -67,7 +67,7 @@ struct DID_test : public beast::unit_test::suite
 
         using namespace test::jtx;
 
-        Env env{*this, features};
+        Env env{*this, features - featureOwnerReserveExemption};
         Account const alice{"alice"};
 
         // Fund alice enough to exist, but not enough to meet
@@ -110,6 +110,35 @@ struct DID_test : public beast::unit_test::suite
         env(did::del(alice));
         BEAST_EXPECT(ownerCount(env, alice) == 0);
         env.close();
+
+        {
+            using namespace test::jtx;
+
+            Env env{*this, features | featureOwnerReserveExemption};
+            Account const alice{"alice"};
+
+            env.fund(env.current()->fees().accountReserve(0), alice);
+            env.close();
+
+            env.require(owners(alice, 0));
+            env(did::setValid(alice), ter(tesSUCCESS));
+            env(did::del(alice));
+            env.close();
+            env.require(owners(alice, 0));
+
+            env(ticket::create(alice, 1));
+            env.require(owners(alice, 1));
+            env(did::setValid(alice), ter(tesSUCCESS));
+            env(did::del(alice));
+            env.close();
+            env.require(owners(alice, 1));
+
+            env(ticket::create(alice, 1));
+            env.require(owners(alice, 2));
+            env(did::setValid(alice), ter(tecINSUFFICIENT_RESERVE));
+            env.close();
+            env.require(owners(alice, 2));
+        }
     }
 
     void

@@ -89,12 +89,24 @@ addSLE(
 
     // Check reserve availability for new object creation
     {
-        auto const balance = STAmount((*sleAccount)[sfBalance]).xrp();
-        auto const reserve =
-            ctx.view().fees().accountReserve((*sleAccount)[sfOwnerCount] + 1);
+        auto const mPriorBalance = STAmount((*sleAccount)[sfBalance]).xrp();
 
-        if (balance < reserve)
-            return tecINSUFFICIENT_RESERVE;
+        uint32_t const ownerCount = sleAccount->getFieldU32(sfOwnerCount);
+        auto const accountReserve =
+            ctx.view().fees().accountReserve(ownerCount + 1);
+        if (ctx.view().rules().enabled(featureOwnerReserveExemption))
+        {
+            auto const requiredReserve =
+                ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
+
+            if (mPriorBalance < requiredReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
+        else
+        {
+            if (mPriorBalance < accountReserve)
+                return tecINSUFFICIENT_RESERVE;
+        }
     }
 
     // Add ledger object to ledger

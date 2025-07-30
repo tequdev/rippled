@@ -175,9 +175,22 @@ VaultCreate::doApply()
     if (auto ter = dirLink(view(), account_, vault))
         return ter;
     adjustOwnerCount(view(), owner, 1, j_);
-    auto ownerCount = owner->at(sfOwnerCount);
-    if (mPriorBalance < view().fees().accountReserve(ownerCount))
-        return tecINSUFFICIENT_RESERVE;
+    auto ownerCountAfter = owner->at(sfOwnerCount);
+
+    auto const accountReserve = view().fees().accountReserve(ownerCountAfter);
+    if (view().rules().enabled(featureOwnerReserveExemption))
+    {
+        auto const requiredReserve =
+            ownerCountAfter <= 2 ? XRPAmount(beast::zero) : accountReserve;
+
+        if (mPriorBalance < requiredReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
+    else
+    {
+        if (mPriorBalance < accountReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
 
     auto maybePseudo = createPseudoAccount(view(), vault->key(), sfVaultID);
     if (!maybePseudo)

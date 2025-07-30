@@ -99,11 +99,22 @@ DelegateSet::doApply()
         return tesSUCCESS;
     }
 
-    STAmount const reserve{ctx_.view().fees().accountReserve(
-        sleOwner->getFieldU32(sfOwnerCount) + 1)};
+    uint32_t const ownerCount = sleOwner->getFieldU32(sfOwnerCount);
+    auto const accountReserve =
+        ctx_.view().fees().accountReserve(ownerCount + 1);
+    if (view().rules().enabled(featureOwnerReserveExemption))
+    {
+        auto const requiredReserve =
+            ownerCount < 2 ? XRPAmount(beast::zero) : accountReserve;
 
-    if (mPriorBalance < reserve)
-        return tecINSUFFICIENT_RESERVE;
+        if (mPriorBalance < requiredReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
+    else
+    {
+        if (mPriorBalance < accountReserve)
+            return tecINSUFFICIENT_RESERVE;
+    }
 
     auto const& permissions = ctx_.tx.getFieldArray(sfPermissions);
     if (!permissions.empty())
