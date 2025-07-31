@@ -8,6 +8,9 @@ var searchData=
   ['amendmentsupport_5',['AmendmentSupport',['../namespaceripple.html#a3330933c50c449b7830586d1450da8f5',1,'ripple']]],
   ['amendmentvote_6',['AmendmentVote',['../namespaceripple.html#a1dcb4cf27e683bd94d11f5322836c689',1,'ripple']]],
   ['applyflags_7',['ApplyFlags',['../namespaceripple.html#ad2487abbcc1a5d6064b72144b461df6e',1,'ripple']]],
-  ['applyresult_8',['ApplyResult',['../namespaceripple.html#abbfb5342bce7b612bff600b8a44268ab',1,'ripple']]],
-  ['attestationmatch_9',['AttestationMatch',['../namespaceripple.html#aad512dea42da4cc179f20c67de593c26',1,'ripple']]]
+  ['applytransactionresult_8',['ApplyTransactionResult',['../namespaceripple.html#a3352ead78ab1510016d3f728004acd63',1,'ripple']]],
+  ['attestationmatch_9',['AttestationMatch',['../namespaceripple.html#aad512dea42da4cc179f20c67de593c26',1,'ripple']]],
+  ['authhandling_10',['AuthHandling',['../namespaceripple.html#a5b188f8f22827b2e24b506ef852ffd69',1,'ripple']]],
+  ['authtype_11',['AuthType',['../namespaceripple.html#a4e070aef85986336795216a3e5336f8d',1,'ripple']]],
+  ['avalanchestate_12',['AvalancheState',['../structripple_1_1ConsensusParms.html#a57f6518dd29b3e8224b4ef9fe1692230',1,'ripple::ConsensusParms']]]
 ];

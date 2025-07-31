@@ -109,8 +109,8 @@ Collaboration diagram for ripple::ZeroCopyInputStream&lt; Buffers &gt;:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a63bdd32f690ea18dbd3c0cc6734dc82d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classripple_1_1ZeroCopyInputStream.html#a63bdd32f690ea18dbd3c0cc6734dc82d">ZeroCopyInputStream</a> (Buffers const &amp;buffers)</td></tr>
 <tr class="separator:a63bdd32f690ea18dbd3c0cc6734dc82d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3e07c10d04fb8a18c0d51a57010b9882"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classripple_1_1ZeroCopyInputStream.html#a3e07c10d04fb8a18c0d51a57010b9882">Next</a> (const void **data, int *size) override</td></tr>
-<tr class="separator:a3e07c10d04fb8a18c0d51a57010b9882"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77ac21837f29dd4611826d85c7a2ec12"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classripple_1_1ZeroCopyInputStream.html#a77ac21837f29dd4611826d85c7a2ec12">Next</a> (void const **data, int *size) override</td></tr>
+<tr class="separator:a77ac21837f29dd4611826d85c7a2ec12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aae65ed175955f6b327574e891e0ce1c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classripple_1_1ZeroCopyInputStream.html#aae65ed175955f6b327574e891e0ce1c6">BackUp</a> (int count) override</td></tr>
 <tr class="separator:aae65ed175955f6b327574e891e0ce1c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad245cc79b2655176b27b9060a39e3b6d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classripple_1_1ZeroCopyInputStream.html#ad245cc79b2655176b27b9060a39e3b6d">Skip</a> (int count) override</td></tr>
@@ -147,7 +147,7 @@ class ripple::ZeroCopyInputStream&lt; Buffers &gt;</div><p >Implements <a class=
 </dl>
 <dl class="section see"><dt>See also</dt><dd><a href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.io.zero_copy_stream">https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.io.zero_copy_stream</a> </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00035">35</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00037">37</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="ad3978ab8b840fc8e67a21b5f09f7e9b5" name="ad3978ab8b840fc8e67a21b5f09f7e9b5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad3978ab8b840fc8e67a21b5f09f7e9b5">&#9670;&#160;</a></span>iterator</h2>
@@ -171,7 +171,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00038">38</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00040">40</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -197,7 +197,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00039">39</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00041">41</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -228,13 +228,13 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00068">68</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00070">70</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a3e07c10d04fb8a18c0d51a57010b9882" name="a3e07c10d04fb8a18c0d51a57010b9882"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3e07c10d04fb8a18c0d51a57010b9882">&#9670;&#160;</a></span>Next()</h2>
+<a id="a77ac21837f29dd4611826d85c7a2ec12" name="a77ac21837f29dd4611826d85c7a2ec12"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a77ac21837f29dd4611826d85c7a2ec12">&#9670;&#160;</a></span>Next()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -247,7 +247,7 @@ template&lt;class Buffers &gt; </div>
         <tr>
           <td class="memname">bool <a class="el" href="classripple_1_1ZeroCopyInputStream.html">ripple::ZeroCopyInputStream</a>&lt; Buffers &gt;::Next </td>
           <td>(</td>
-          <td class="paramtype">const void **&#160;</td>
+          <td class="paramtype">void const **&#160;</td>
           <td class="paramname"><em>data</em>, </td>
         </tr>
         <tr>
@@ -269,7 +269,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00077">77</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00079">79</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -299,7 +299,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00090">90</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00092">92</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -329,7 +329,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00099">99</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00101">101</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -358,7 +358,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00059">59</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00061">61</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -385,7 +385,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00041">41</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00043">43</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -411,7 +411,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00042">42</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00044">44</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -437,7 +437,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00043">43</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00045">45</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
@@ -463,7 +463,7 @@ template&lt;class Buffers &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00044">44</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="ZeroCopyStream_8h_source.html#l00046">46</a> of file <a class="el" href="ZeroCopyStream_8h_source.html">ZeroCopyStream.h</a>.</p>
 
 </div>
 </div>
