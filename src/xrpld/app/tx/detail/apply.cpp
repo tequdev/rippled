@@ -255,7 +255,8 @@ applyTransaction(
 
     try
     {
-        auto const result = apply(app, view, txn, flags, j);
+        OpenView applyTxnView(batch_view, view);
+        auto const result = apply(app, applyTxnView, txn, flags, j);
 
         if (result.applied)
         {
@@ -266,14 +267,35 @@ applyTransaction(
             // its inner transactions as necessary.
             if (isTesSuccess(result.ter) && txn.getTxnType() == ttBATCH)
             {
-                OpenView wholeBatchView(batch_view, view);
+                OpenView wholeBatchView(batch_view, applyTxnView);
 
                 if (applyBatchTransactions(app, wholeBatchView, txn, j))
-                    wholeBatchView.apply(view);
+                {
+                    wholeBatchView.apply(applyTxnView);
+                    applyTxnView.apply(view);
+                }
+                else
+                {
+                    if (view.rules().enabled(fixBatchReturnsFailed))
+                    {
+                        OpenView batchFailedView(batch_view, view);
+                        auto const result = apply(
+                            app, batchFailedView, txn, tapBATCH_FAILED, j);
+                        batchFailedView.apply(view);
+                    }
+                    else
+                    {
+                        applyTxnView.apply(view);
+                    }
+                }
+                return ApplyTransactionResult::Success;
             }
 
+            applyTxnView.apply(view);
             return ApplyTransactionResult::Success;
         }
+
+        applyTxnView.apply(view);
 
         if (isTefFailure(result.ter) || isTemMalformed(result.ter) ||
             isTelLocal(result.ter))
