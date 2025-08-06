@@ -46,6 +46,9 @@ public:
     static NotTEC
     checkSign(PreclaimContext const& ctx);
 
+    static TER
+    preclaim(PreclaimContext const& ctx);
+
     TER
     doApply() override;
 };

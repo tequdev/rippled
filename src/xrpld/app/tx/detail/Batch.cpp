@@ -483,6 +483,15 @@ Batch::checkSign(PreclaimContext const& ctx)
     return tesSUCCESS;
 }
 
+TER
+Batch::preclaim(PreclaimContext const& ctx)
+{
+    if (ctx.flags & tapBATCH_FAILED)
+        return tecBATCH_FAILED;
+
+    return tesSUCCESS;
+}
+
 /**
  * @brief Applies the outer batch transaction.
  *
