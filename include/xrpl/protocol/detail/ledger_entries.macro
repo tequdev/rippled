@@ -252,6 +252,7 @@ LEDGER_ENTRY(ltOFFER, 0x006f, Offer, offer, ({
     {sfExpiration,           soeOPTIONAL},
     {sfDomainID,             soeOPTIONAL},
     {sfAdditionalBooks,      soeOPTIONAL},
+    {sfRebate,               soeOPTIONAL},
 }))
 
 /** A ledger object which describes a deposit preauthorization.

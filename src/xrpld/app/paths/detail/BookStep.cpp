@@ -920,6 +920,66 @@ BookStep<TIn, TOut, TDerived>::consumeOffer(
     }
 
     offer.consume(sb, ofrAmt);
+
+    if (auto const rebateAcc = offer.rebateAccount(); rebateAcc)
+    {
+        if (book_.in.native())
+        {
+            Rate const r = offer.rebateRate().value();
+            auto const cr = offer.send_waive(
+                sb,
+                offer.owner(),
+                *rebateAcc,
+                multiply(toSTAmount(ofrAmt.in, book_.in), r),
+                j_,
+                WaiveTransferFee::Yes);
+            if (cr != tesSUCCESS)
+                Throw<FlowException>(cr);
+            return;
+        }
+        if (!sb.exists(keylet::account(*rebateAcc)))
+            return;
+
+        auto const rebateLineSle = sb.read(
+            keylet::line(*rebateAcc, book_.in.getIssuer(), book_.in.currency));
+        if (!rebateLineSle)
+            return;
+
+        // If the issuer has requireAuth set, check if the destination
+        // is authorized
+        if (auto const ter = requireAuth(sb, book_.in, *rebateAcc);
+            ter != tesSUCCESS)
+            return;
+
+        // If the issuer has deep frozen the destination
+        if (isDeepFrozen(
+                sb, *rebateAcc, book_.in.currency, book_.in.getIssuer()))
+            return;
+
+        bool const issuerHigh = book_.in.getIssuer() > *rebateAcc;
+
+        auto const limit =
+            (*rebateLineSle)[issuerHigh ? sfLowLimit : sfHighLimit];
+        auto balance = (*rebateLineSle)[sfBalance];
+        if (!issuerHigh)
+            balance.negate();
+
+        if (limit <= balance)
+            return;
+
+        STAmount const remaining = limit - balance;
+
+        auto amt = std::min(
+            STAmount{book_.in, remaining},
+            multiply(toSTAmount(ofrAmt.in, book_.in), *offer.rebateRate()));
+
+        printf("amt: %s\n", amt.getFullText().c_str());
+
+        auto const cr = offer.send_waive(
+            sb, offer.owner(), *rebateAcc, amt, j_, WaiveTransferFee::Yes);
+        if (cr != tesSUCCESS)
+            ;  // do nothing
+    }
 }
 
 template <class TIn, class TOut, class TDerived>

@@ -31,6 +31,8 @@
 #include <xrpl/protocol/TxFlags.h>
 #include <xrpl/protocol/st.h>
 
+#include "xrpld/ledger/View.h"
+
 namespace ripple {
 TxConsequences
 CreateOffer::makeTxConsequences(PreflightContext const& ctx)
@@ -48,6 +50,9 @@ CreateOffer::preflight(PreflightContext const& ctx)
 {
     if (ctx.tx.isFieldPresent(sfDomainID) &&
         !ctx.rules.enabled(featurePermissionedDEX))
+        return temDISABLED;
+
+    if (ctx.tx.isFieldPresent(sfRebate) && !ctx.rules.enabled(featureRebate))
         return temDISABLED;
 
     if (auto const ret = preflight1(ctx); !isTesSuccess(ret))
@@ -136,6 +141,25 @@ CreateOffer::preflight(PreflightContext const& ctx)
         return temBAD_ISSUER;
     }
 
+    if (tx.isFieldPresent(sfRebate))
+    {
+        auto const& rebate = tx.peekAtField(sfRebate).downcast<STObject>();
+        auto const& rebateRate = rebate.getFieldU16(sfRebateRate);
+        if (rebateRate == 0 || rebateRate > 50000)
+        {
+            JLOG(j.debug()) << "Malformed offer: bad rebate rate";
+            return temBAD_REBATE_RATE;
+        }
+
+        auto const& dstId = rebate.getAccountID(sfDestination);
+        if (dstId == tx[sfAccount])
+        {
+            JLOG(j.debug()) << "Malformed offer: rebate destination cannot be "
+                               "the same as the offer creator";
+            return temREDUNDANT;
+        }
+    }
+
     return preflight2(ctx);
 }
 
@@ -219,6 +243,45 @@ CreateOffer::preclaim(PreclaimContext const& ctx)
         if (!permissioned_dex::accountInDomain(
                 ctx.view, id, ctx.tx[sfDomainID]))
             return tecNO_PERMISSION;
+    }
+
+    if (ctx.tx.isFieldPresent(sfRebate))
+    {
+        auto const& rebate = ctx.tx.peekAtField(sfRebate).downcast<STObject>();
+        auto const& dstId = rebate.getAccountID(sfDestination);
+
+        auto const& sleDst = ctx.view.read(keylet::account(dstId));
+        if (!sleDst)
+        {
+            JLOG(ctx.j.debug())
+                << "Malformed offer: rebate destination account does not exist";
+            return tecNO_DST;
+        }
+
+        if (!isXRP(saTakerPays.getCurrency()))
+        {
+            auto const& sleRebateLine = ctx.view.read(keylet::line(
+                saTakerPays.getIssuer(), dstId, saTakerPays.getCurrency()));
+            if (!sleRebateLine)
+            {
+                JLOG(ctx.j.debug()) << "Malformed offer: rebate destination "
+                                       "account does not have "
+                                       "trustline to taker pays";
+                return tecNO_LINE;
+            }
+
+            if (auto const ter =
+                    requireAuth(ctx.view, saTakerPays.issue(), dstId);
+                ter != tesSUCCESS)
+                return ter;  // tecNO_AUTH
+
+            if (isDeepFrozen(
+                    ctx.view,
+                    dstId,
+                    saTakerPays.getCurrency(),
+                    saTakerPays.getIssuer()))
+                return tecFROZEN;
+        }
     }
 
     return tesSUCCESS;
@@ -316,7 +379,8 @@ CreateOffer::flowCross(
     PaymentSandbox& psb,
     PaymentSandbox& psbCancel,
     Amounts const& takerAmount,
-    std::optional<uint256> const& domainID)
+    std::optional<uint256> const& domainID,
+    std::optional<Rebate> const& rebate)
 {
     try
     {
@@ -505,6 +569,62 @@ CreateOffer::flowCross(
             }
         }
 
+        // send actualAmountOut * rebateRate to rebateAccount
+        if (rebate && result.actualAmountOut > beast::zero)
+        {
+            if (result.actualAmountOut.native())
+            {
+                auto const cr = accountSend(
+                    psb,
+                    account_,
+                    (*rebate).destination,
+                    multiply(result.actualAmountOut, (*rebate).rebateRate),
+                    j_,
+                    WaiveTransferFee::Yes);
+                if (cr != tesSUCCESS)
+                    ;  // do nothing
+            }
+            else
+            {
+                auto const& rebateLineSle = psb.read(keylet::line(
+                    (*rebate).destination,
+                    result.actualAmountOut.getIssuer(),
+                    result.actualAmountOut.getCurrency()));
+                if (!rebateLineSle)
+                    return {tecINTERNAL, afterCross};
+
+                bool const issuerHigh =
+                    result.actualAmountOut.getIssuer() > (*rebate).destination;
+
+                auto const limit =
+                    (*rebateLineSle)[issuerHigh ? sfLowLimit : sfHighLimit];
+                auto balance = (*rebateLineSle)[sfBalance];
+                if (!issuerHigh)
+                    balance.negate();
+
+                if (limit > balance)
+                {
+                    STAmount const remaining = limit - balance;
+                    auto amt = std::min(
+                        remaining,
+                        multiply(
+                            STAmount{
+                                result.actualAmountOut.issue(),
+                                takerAmount.out},
+                            (*rebate).rebateRate));
+                    auto const cr = accountSend(
+                        psb,
+                        account_,
+                        (*rebate).destination,
+                        amt,
+                        j_,
+                        WaiveTransferFee::Yes);
+                    if (cr != tesSUCCESS)
+                        ;  // do nothing
+                }
+            }
+        }
+
         // Return how much of the offer is left.
         return {tesSUCCESS, afterCross};
     }
@@ -589,6 +709,16 @@ CreateOffer::applyGuts(Sandbox& sb, Sandbox& sbCancel)
     auto saTakerGets = ctx_.tx[sfTakerGets];
     auto const domainID = ctx_.tx[~sfDomainID];
 
+    std::optional<Rebate> rebate;
+    if (ctx_.tx.isFieldPresent(sfRebate))
+    {
+        auto const& rebateObj =
+            ctx_.tx.peekAtField(sfRebate).downcast<STObject>();
+        rebate = Rebate{
+            Rate{static_cast<uint32_t>(
+                rebateObj.getFieldU16(sfRebateRate) * 10000)},
+            rebateObj.getAccountID(sfDestination)};
+    }
     auto const cancelSequence = ctx_.tx[~sfOfferSequence];
 
     // Note that we we use the value from the sequence or ticket as the
@@ -707,7 +837,7 @@ CreateOffer::applyGuts(Sandbox& sb, Sandbox& sbCancel)
         PaymentSandbox psbCancelFlow{&sbCancel};
 
         std::tie(result, place_offer) =
-            flowCross(psbFlow, psbCancelFlow, takerAmount, domainID);
+            flowCross(psbFlow, psbCancelFlow, takerAmount, domainID, rebate);
         psbFlow.apply(sb);
         psbCancelFlow.apply(sbCancel);
 
@@ -908,6 +1038,13 @@ CreateOffer::applyGuts(Sandbox& sb, Sandbox& sbCancel)
         sleOffer->setFlag(lsfSell);
     if (domainID)
         sleOffer->setFieldH256(sfDomainID, *domainID);
+    if (rebate)
+    {
+        STObject rebateObj = STObject::makeInnerObject(sfRebate);
+        rebateObj.setAccountID(sfDestination, (*rebate).destination);
+        rebateObj.setFieldU16(sfRebateRate, (*rebate).rebateRate.value / 10000);
+        sleOffer->set(std::move(rebateObj));
+    }
 
     // if it's a hybrid offer, set hybrid flag, and create an open dir
     if (bHybrid)

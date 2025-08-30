@@ -17,6 +17,7 @@
 */
 //==============================================================================
 
+#include <test/jtx/Account.h>
 #include <test/jtx/offer.h>
 
 #include <xrpl/protocol/jss.h>
@@ -50,6 +51,14 @@ offer_cancel(Account const& account, std::uint32_t offerSeq)
     jv[jss::OfferSequence] = offerSeq;
     jv[jss::TransactionType] = jss::OfferCancel;
     return jv;
+}
+
+void
+rebate::operator()(Env& env, JTx& jt) const
+{
+    jt.jv[sfRebate.jsonName] = Json::objectValue;
+    jt.jv[sfRebate.jsonName][sfDestination.jsonName] = destination_;
+    jt.jv[sfRebate.jsonName][sfRebateRate.jsonName] = rate_;
 }
 
 }  // namespace jtx

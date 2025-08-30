@@ -26,6 +26,8 @@
 #include <xrpl/protocol/Quality.h>
 #include <xrpl/protocol/TER.h>
 
+#include <optional>
+
 namespace ripple {
 
 template <typename TIn, typename TOut>
@@ -87,6 +89,18 @@ public:
     TAmounts<TIn, TOut> const&
     amount() const;
 
+    std::optional<AccountID>
+    rebateAccount() const
+    {
+        return std::nullopt;
+    }
+
+    std::optional<Rate>
+    rebateRate() const
+    {
+        return std::nullopt;
+    }
+
     void
     consume(ApplyView& view, TAmounts<TIn, TOut> const& consumed);
 
@@ -124,6 +138,13 @@ public:
     send(Args&&... args)
     {
         return accountSend(std::forward<Args>(args)..., WaiveTransferFee::Yes);
+    }
+
+    template <typename... Args>
+    static TER
+    send_waive(Args&&... args)
+    {
+        return accountSend(std::forward<Args>(args)...);
     }
 
     bool
