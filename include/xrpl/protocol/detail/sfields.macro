@@ -59,6 +59,7 @@ TYPED_SFIELD(sfHookEmitCount,            UINT16,    18)
 TYPED_SFIELD(sfHookExecutionIndex,       UINT16,    19)
 TYPED_SFIELD(sfHookApiVersion,           UINT16,    20)
 TYPED_SFIELD(sfLedgerFixType,            UINT16,    21)
+TYPED_SFIELD(sfRebateRate,               UINT16,    22)
 
 // 32-bit integers (common)
 TYPED_SFIELD(sfNetworkID,                UINT32,     1)
@@ -365,6 +366,7 @@ UNTYPED_SFIELD(sfCredential,             OBJECT,    33)
 UNTYPED_SFIELD(sfRawTransaction,         OBJECT,    34)
 UNTYPED_SFIELD(sfBatchSigner,            OBJECT,    35)
 UNTYPED_SFIELD(sfBook,                   OBJECT,    36)
+UNTYPED_SFIELD(sfRebate,                 OBJECT,    37)
 
 // array of objects (common)
 // ARRAY/1 is reserved for end of array

@@ -28,6 +28,7 @@
 #include <xrpl/protocol/SField.h>
 #include <xrpl/protocol/STLedgerEntry.h>
 
+#include <optional>
 #include <stdexcept>
 
 namespace ripple {
@@ -47,6 +48,12 @@ public:
     explicit TOfferBase() = default;
 };
 
+struct Rebate
+{
+    Rate rebateRate;
+    AccountID destination;
+};
+
 template <class TIn = STAmount, class TOut = STAmount>
 class TOffer : private TOfferBase<TIn, TOut>
 {
@@ -54,6 +61,7 @@ private:
     SLE::pointer m_entry;
     Quality m_quality;
     AccountID m_account;
+    std::optional<Rebate> m_rebate;
 
     TAmounts<TIn, TOut> m_amounts;
     void
@@ -93,6 +101,22 @@ public:
     amount() const
     {
         return m_amounts;
+    }
+
+    std::optional<AccountID>
+    rebateAccount() const
+    {
+        if (!m_rebate)
+            return std::nullopt;
+        return m_rebate->destination;
+    }
+
+    std::optional<Rate>
+    rebateRate() const
+    {
+        if (!m_rebate)
+            return std::nullopt;
+        return m_rebate->rebateRate;
     }
 
     /** Returns `true` if no more funds can flow through this offer. */
@@ -152,6 +176,10 @@ public:
     static TER
     send(Args&&... args);
 
+    template <typename... Args>
+    static TER
+    send_waive(Args&&... args);
+
     bool
     isFunded() const
     {
@@ -206,6 +234,15 @@ TOffer<TIn, TOut>::TOffer(SLE::pointer const& entry, Quality quality)
     m_amounts.out = toAmount<TOut>(tg);
     this->issIn_ = tp.issue();
     this->issOut_ = tg.issue();
+    if (m_entry->isFieldPresent(sfRebate))
+    {
+        auto const& rebate =
+            m_entry->peekAtField(sfRebate).downcast<STObject>();
+        m_rebate = Rebate{
+            Rate{static_cast<uint32_t>(
+                rebate.getFieldU16(sfRebateRate) * 10000)},
+            rebate.getAccountID(sfDestination)};
+    }
 }
 
 template <>
@@ -219,6 +256,15 @@ inline TOffer<STAmount, STAmount>::TOffer(
           m_entry->getFieldAmount(sfTakerPays),
           m_entry->getFieldAmount(sfTakerGets))
 {
+    if (m_entry->isFieldPresent(sfRebate))
+    {
+        auto const& rebate =
+            m_entry->peekAtField(sfRebate).downcast<STObject>();
+        m_rebate = Rebate{
+            Rate{static_cast<uint32_t>(
+                rebate.getFieldU16(sfRebateRate) * 10000)},
+            rebate.getAccountID(sfDestination)};
+    }
 }
 
 template <class TIn, class TOut>
@@ -270,6 +316,14 @@ template <class TIn, class TOut>
 template <typename... Args>
 TER
 TOffer<TIn, TOut>::send(Args&&... args)
+{
+    return accountSend(std::forward<Args>(args)...);
+}
+
+template <class TIn, class TOut>
+template <typename... Args>
+TER
+TOffer<TIn, TOut>::send_waive(Args&&... args)
 {
     return accountSend(std::forward<Args>(args)...);
 }

@@ -21,8 +21,10 @@
 #define RIPPLE_TEST_JTX_OFFER_H_INCLUDED
 
 #include <test/jtx/Account.h>
+#include <test/jtx/Env.h>
 
 #include <xrpl/json/json_value.h>
+#include <xrpl/protocol/Rate.h>
 #include <xrpl/protocol/STAmount.h>
 
 namespace ripple {
@@ -40,6 +42,22 @@ offer(
 /** Cancel an offer. */
 Json::Value
 offer_cancel(Account const& account, std::uint32_t offerSeq);
+
+/** Rebate field */
+class rebate
+{
+private:
+    std::string destination_;
+    uint32_t rate_;
+
+public:
+    explicit rebate(jtx::Account const& destination, uint32_t rate)
+        : destination_(destination.human()), rate_(rate)
+    {
+    }
+    void
+    operator()(Env&, JTx& jtx) const;
+};
 
 }  // namespace jtx
 }  // namespace test
