@@ -5550,7 +5550,6 @@ public:
 
                     BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
                     BEAST_EXPECT(env.balance(maker, USD) == USD(1'100));
-                    return;
                 }
                 {
                     // freeze
@@ -5575,7 +5574,6 @@ public:
 
                     BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(1));
                     BEAST_EXPECT(env.balance(maker, USD) == USD(1'099));
-                    return;
                 }
                 {
                     // rebateAccount has insufficient trustline limit
@@ -5626,6 +5624,55 @@ public:
 
                     BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(100));
                     BEAST_EXPECT(env.balance(maker, USD) == USD(1'099.5));
+                }
+
+                PrettyAmount const tinyUSD = PrettyAmount(
+                    STAmount({
+                        USD.issue(),
+                        STAmount::cMinValue,
+                        STAmount::cMinOffset,
+                    }),
+                    "tinyUSD");
+
+                PrettyAmount const tinyUSD2 = PrettyAmount(
+                    STAmount({
+                        USD.issue(),
+                        STAmount::cMinValue,
+                        STAmount::cMinOffset + 5,
+                    }),
+                    "tinyUSD2");
+
+                // success cases
+                for (auto const& [amt, rate, expected] : {
+                         std::make_tuple(USD(100), 50000, USD(50)),
+                         std::make_tuple(USD(100), 1000, USD(1)),
+                         std::make_tuple(USD(100), 5000, USD(5)),
+                         std::make_tuple(USD(100), 1, USD(0.001)),
+                         std::make_tuple(tinyUSD, 1, USD(0)),
+                         std::make_tuple(tinyUSD2, 1, tinyUSD),
+                     })
+                {
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, amt, EUR(100)), rebate(rebateAcc, rate));
+                    env.close();
+
+                    env(trust(rebateAcc, amt));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), amt));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == expected);
+                    BEAST_EXPECT(
+                        env.balance(maker, USD) == USD(1'000) + amt - expected);
                 }
             }
         }
@@ -5812,11 +5859,11 @@ class Offer_manual_test : public OfferBaseUtil_test
     }
 };
 
-// BEAST_DEFINE_TESTSUITE_PRIO(OfferBaseUtil, app, ripple, 2);
-// BEAST_DEFINE_TESTSUITE_PRIO(OfferWTakerDryOffer, app, ripple, 2);
-// BEAST_DEFINE_TESTSUITE_PRIO(OfferWOSmallQOffers, app, ripple, 2);
-// BEAST_DEFINE_TESTSUITE_PRIO(OfferWOFillOrKill, app, ripple, 2);
-// BEAST_DEFINE_TESTSUITE_PRIO(OfferWOPermDEX, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferBaseUtil, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferWTakerDryOffer, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferWOSmallQOffers, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferWOFillOrKill, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferWOPermDEX, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferWORebate, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferAllFeatures, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_MANUAL_PRIO(Offer_manual, app, ripple, 20);

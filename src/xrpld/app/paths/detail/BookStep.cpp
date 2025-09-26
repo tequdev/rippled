@@ -973,7 +973,8 @@ BookStep<TIn, TOut, TDerived>::consumeOffer(
             STAmount{book_.in, remaining},
             multiply(toSTAmount(ofrAmt.in, book_.in), *offer.rebateRate()));
 
-        printf("amt: %s\n", amt.getFullText().c_str());
+        if (amt <= beast::zero)
+            return;
 
         auto const cr = offer.send_waive(
             sb, offer.owner(), *rebateAcc, amt, j_, WaiveTransferFee::Yes);
