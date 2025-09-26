@@ -20,10 +20,13 @@
 #include <test/jtx.h>
 #include <test/jtx/PathSet.h>
 #include <test/jtx/WSClient.h>
+#include <test/jtx/offer.h>
 
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/Quality.h>
 #include <xrpl/protocol/jss.h>
+
+#include "xrpld/ledger/View.h"
 
 namespace ripple {
 namespace test {
@@ -5298,6 +5301,384 @@ public:
     }
 
     void
+    testRebate(FeatureBitset features)
+    {
+        testcase("test rebate");
+        using namespace jtx;
+
+        Account const issuer("issuer");
+        Account const rebateAcc("rebate");
+        Account const maker("maker");
+        Account const taker("taker");
+        Account const unfunded("unfunded");
+        auto const USD = issuer["USD"];
+        auto const EUR = issuer["EUR"];
+
+        auto prepare = [&](Env& env, uint32_t issuerFlag = 0) {
+            env.fund(XRP(1'000), issuer, rebateAcc);
+            env.fund(XRP(1'000), maker, taker);
+            env.close();
+
+            if (issuerFlag)
+            {
+                env(fset(issuer, issuerFlag));
+                env.close();
+            }
+
+            if (issuerFlag & asfRequireAuth)
+            {
+                env(trust(issuer, maker["USD"](1'000)), txflags(tfSetfAuth));
+                env(trust(issuer, maker["EUR"](1'000)), txflags(tfSetfAuth));
+                env(trust(issuer, taker["USD"](1'000)), txflags(tfSetfAuth));
+                env(trust(issuer, taker["EUR"](1'000)), txflags(tfSetfAuth));
+                env.close();
+            }
+
+            env.trust(USD(1'000), maker, taker);
+            env.trust(EUR(1'000), maker, taker);
+            env.close();
+
+            env(pay(issuer, maker, USD(1'000)));
+            env(pay(issuer, taker, USD(1'000)));
+            env(pay(issuer, maker, EUR(1'000)));
+            env.close();
+
+            auto makerUSDBalance = env.balance(maker, USD).value();
+            auto takerUSDBalance = env.balance(taker, USD).value();
+            auto makerEURBalance = env.balance(maker, EUR).value();
+            auto takerEURBalance = env.balance(taker, EUR).value();
+            auto makerXRPBalance = env.balance(maker, XRP).value();
+            auto takerXRPBalance = env.balance(taker, XRP).value();
+        };
+
+        if (!features[featureRebate])
+        {
+            Env env(*this, features);
+            prepare(env);
+            // Disabled
+            env(offer(maker, XRP(100), USD(100)),
+                rebate(rebateAcc, 1000),
+                ter(temDISABLED));
+            return;
+        }
+
+        // invalid Rebate field
+        {
+            Env env(*this, features);
+            prepare(env);
+
+            // Invalid RebateRate
+            for (auto const rate : {0, 50001})
+            {
+                env(offer(maker, XRP(100), USD(100)),
+                    rebate(rebateAcc, rate),
+                    ter(temBAD_REBATE_RATE));
+            }
+
+            // Invalid Destination (= Account)
+            env(offer(maker, XRP(100), USD(100)),
+                rebate(maker, 1000),
+                ter(temREDUNDANT));
+
+            // Destination account doesn't exist
+            env(offer(maker, XRP(100), USD(100)),
+                rebate(unfunded, 1000),
+                ter(tecNO_DST));
+
+            // Rebate account doesn't have trustline to sfTakerPays
+            env(offer(maker, USD(100), XRP(100)),
+                rebate(rebateAcc, 1000),
+                ter(tecNO_LINE));
+
+            // require Auth
+            {
+                Env env(*this, features);
+                prepare(env, asfRequireAuth);
+
+                env(trust(rebateAcc, USD(1'000)));
+                env.close();
+
+                env(offer(maker, USD(100), XRP(100)),
+                    rebate(rebateAcc, 1000),
+                    ter(tecNO_AUTH));
+                env.close();
+            }
+
+            // deep freeze
+            {
+                Env env(*this, features);
+                prepare(env);
+
+                env(trust(rebateAcc, USD(1'000)));
+                env.close();
+
+                env(trust(
+                    issuer,
+                    rebateAcc["USD"](0),
+                    tfSetFreeze | tfSetDeepFreeze));
+                env.close();
+
+                env(offer(maker, USD(100), XRP(100)),
+                    rebate(rebateAcc, 1000),
+                    ter(tecFROZEN));
+                env.close();
+            }
+        }
+
+        {
+            // as Taker receive XRP
+            {
+                Env env(*this, features);
+                prepare(env);
+                env(offer(taker, USD(100), XRP(100)));
+                env.close();
+
+                BEAST_EXPECT(env.balance(rebateAcc, XRP) == XRP(1'000));
+                BEAST_EXPECT(env.balance(maker, XRP) == XRP(1'000));
+
+                env(offer(maker, XRP(100), USD(100)), rebate(rebateAcc, 1000));
+                env.close();
+
+                BEAST_EXPECT(env.balance(rebateAcc, XRP) == XRP(1'001));
+                BEAST_EXPECT(
+                    env.balance(maker, XRP) == (drops(999999990) + XRP(99)));
+            }
+            // as Taker receive IOU
+            {
+                // with Issuer Fee
+            }
+        }
+        {
+            // as Maker (receive XRP)
+            {
+                Env env(*this, features);
+                prepare(env);
+                env(offer(maker, XRP(100), USD(100)), rebate(rebateAcc, 1000));
+                env.close();
+
+                BEAST_EXPECT(env.balance(rebateAcc, XRP) == XRP(1'000));
+                BEAST_EXPECT(env.balance(maker, XRP) == drops(999999990));
+
+                env(offer(taker, USD(100), XRP(100)));
+                env.close();
+
+                BEAST_EXPECT(env.balance(rebateAcc, XRP) == XRP(1'001));
+                BEAST_EXPECT(
+                    env.balance(maker, XRP) == (drops(999999990) + XRP(99)));
+            }
+
+            // as Maker (receive IOU)
+            {
+                {
+                    // rebateAccount does not exist
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    env(trust(rebateAcc, USD(0)));
+                    env.close();
+
+                    for (int i = 0; i < 255; ++i)
+                        env.close();
+
+                    env(acctdelete(rebateAcc, env.master),
+                        fee(drops(env.current()->fees().increment)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'100));
+                }
+                {
+                    // rebateAccount does not have trustline to sfTakerPays
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    env(trust(rebateAcc, USD(0)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'100));
+                }
+                {
+                    // deep freeze
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(trust(
+                        issuer,
+                        rebateAcc["USD"](0),
+                        tfSetFreeze | tfSetDeepFreeze));
+                    env.close();
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'100));
+                }
+                {
+                    // freeze
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(trust(issuer, rebateAcc["USD"](0), tfSetFreeze));
+                    env.close();
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(1));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'099));
+                }
+                {
+                    // rebateAccount has insufficient trustline limit
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    env(trust(rebateAcc, USD(0.5)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0.5));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'099.5));
+                }
+                {
+                    // rebateAccount has insufficient remaining balance
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, USD(100), EUR(100)),
+                        rebate(rebateAcc, 1000));
+                    env.close();
+
+                    env(trust(rebateAcc, USD(100)));
+                    env.close();
+                    env(pay(issuer, rebateAcc, USD(99.5)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(99.5));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), USD(100)));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(100));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'099.5));
+                }
+
+                PrettyAmount const tinyUSD = PrettyAmount(
+                    STAmount({
+                        USD.issue(),
+                        STAmount::cMinValue,
+                        STAmount::cMinOffset,
+                    }),
+                    "tinyUSD");
+
+                PrettyAmount const tinyUSD2 = PrettyAmount(
+                    STAmount({
+                        USD.issue(),
+                        STAmount::cMinValue,
+                        STAmount::cMinOffset + 5,
+                    }),
+                    "tinyUSD2");
+
+                // success cases
+                for (auto const& [amt, rate, expected] : {
+                         std::make_tuple(USD(100), 50000, USD(50)),
+                         std::make_tuple(USD(100), 1000, USD(1)),
+                         std::make_tuple(USD(100), 5000, USD(5)),
+                         std::make_tuple(USD(100), 1, USD(0.001)),
+                         std::make_tuple(tinyUSD, 1, USD(0)),
+                         std::make_tuple(tinyUSD2, 1, tinyUSD),
+                     })
+                {
+                    Env env(*this, features);
+                    prepare(env);
+
+                    env(trust(rebateAcc, USD(1'000)));
+                    env.close();
+
+                    env(offer(maker, amt, EUR(100)), rebate(rebateAcc, rate));
+                    env.close();
+
+                    env(trust(rebateAcc, amt));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == USD(0));
+                    BEAST_EXPECT(env.balance(maker, USD) == USD(1'000));
+
+                    env(offer(taker, EUR(100), amt));
+                    env.close();
+
+                    BEAST_EXPECT(env.balance(rebateAcc, USD) == expected);
+                    BEAST_EXPECT(
+                        env.balance(maker, USD) == USD(1'000) + amt - expected);
+                }
+            }
+        }
+    }
+
+    void
     testAll(FeatureBitset features)
     {
         testCanceledOffer(features);
@@ -5359,6 +5740,7 @@ public:
         testRmSmallIncreasedQOffersXRP(features);
         testRmSmallIncreasedQOffersIOU(features);
         testFillOrKill(features);
+        testRebate(features);
     }
 
     void
@@ -5373,14 +5755,16 @@ public:
             featureImmediateOfferKilled};
         FeatureBitset const fillOrKill{fixFillOrKill};
         FeatureBitset const permDEX{featurePermissionedDEX};
+        FeatureBitset const rebate{featureRebate};
 
-        static std::array<FeatureBitset, 6> const feats{
+        static std::array<FeatureBitset, 7> const feats{
             all - takerDryOffer - immediateOfferKilled - permDEX,
             all - immediateOfferKilled - permDEX,
             all - rmSmallIncreasedQOffers - immediateOfferKilled - fillOrKill -
                 permDEX,
             all - fillOrKill - permDEX,
             all - permDEX,
+            all - rebate,
             all};
 
         if (BEAST_EXPECT(instance < feats.size()))
@@ -5434,12 +5818,21 @@ class OfferWOPermDEX_test : public OfferBaseUtil_test
     }
 };
 
+class OfferWORebate_test : public OfferBaseUtil_test
+{
+    void
+    run() override
+    {
+        OfferBaseUtil_test::run(5);
+    }
+};
+
 class OfferAllFeatures_test : public OfferBaseUtil_test
 {
     void
     run() override
     {
-        OfferBaseUtil_test::run(5, true);
+        OfferBaseUtil_test::run(6, true);
     }
 };
 
@@ -5471,6 +5864,7 @@ BEAST_DEFINE_TESTSUITE_PRIO(OfferWTakerDryOffer, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferWOSmallQOffers, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferWOFillOrKill, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferWOPermDEX, app, ripple, 2);
+BEAST_DEFINE_TESTSUITE_PRIO(OfferWORebate, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_PRIO(OfferAllFeatures, app, ripple, 2);
 BEAST_DEFINE_TESTSUITE_MANUAL_PRIO(Offer_manual, app, ripple, 20);
 

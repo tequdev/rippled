@@ -152,6 +152,7 @@ TRANSACTION(ttOFFER_CREATE, 7, OfferCreate,
     {sfExpiration, soeOPTIONAL},
     {sfOfferSequence, soeOPTIONAL},
     {sfDomainID, soeOPTIONAL},
+    {sfRebate, soeOPTIONAL},
 }))
 
 /** This transaction type cancels existing offers to trade one asset for another. */

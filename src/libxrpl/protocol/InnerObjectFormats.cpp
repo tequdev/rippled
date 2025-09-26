@@ -172,6 +172,13 @@ InnerObjectFormats::InnerObjectFormats()
             {sfBookDirectory, soeREQUIRED},
             {sfBookNode, soeREQUIRED},
         });
+
+    add(sfRebate.jsonName,
+        sfRebate.getCode(),
+        {
+            {sfDestination, soeREQUIRED},
+            {sfRebateRate, soeREQUIRED},
+        });
 }
 
 InnerObjectFormats const&

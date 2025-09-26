@@ -23,6 +23,7 @@
 #include <xrpld/app/tx/detail/Transactor.h>
 
 #include <xrpl/protocol/Quality.h>
+#include <xrpl/protocol/Rate.h>
 
 namespace ripple {
 
@@ -56,6 +57,12 @@ public:
     doApply() override;
 
 private:
+    struct Rebate
+    {
+        Rate rebateRate;
+        AccountID destination;
+    };
+
     std::pair<TER, bool>
     applyGuts(Sandbox& view, Sandbox& view_cancel);
 
@@ -74,7 +81,8 @@ private:
         PaymentSandbox& psb,
         PaymentSandbox& psbCancel,
         Amounts const& takerAmount,
-        std::optional<uint256> const& domainID);
+        std::optional<uint256> const& domainID,
+        std::optional<Rebate> const& rebate);
 
     static std::string
     format_amount(STAmount const& amount);
