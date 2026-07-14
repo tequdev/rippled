@@ -94,12 +94,6 @@ GraphPathfinder::findPaths(std::function<bool()> const& continueCallback)
         return false;
     }
 
-    if (srcAccount_ == dstAccount_ && srcPathAsset_ == dstAmount_.asset())
-    {
-        JLOG(j_.debug()) << "GraphPathfinder: trivial same-account same-asset";
-        return true;
-    }
-
     // Resolve source and destination assets.
     Asset const srcAsset = srcPathAsset_.visit(
         [&](Currency const& c) -> Asset {
@@ -109,6 +103,16 @@ GraphPathfinder::findPaths(std::function<bool()> const& continueCallback)
         [](MPTID const& mpt) -> Asset { return MPTIssue{mpt}; });
 
     Asset const dstAsset = dstAmount_.asset();
+
+    // PathAsset intentionally omits the IOU issuer.  Comparing it directly
+    // with dstAsset would therefore treat two issues with the same currency
+    // (for example alice.USD and bob.USD) as the same asset and incorrectly
+    // skip a self-payment that still needs an order-book conversion.
+    if (srcAccount_ == dstAccount_ && srcAsset == dstAsset)
+    {
+        JLOG(j_.debug()) << "GraphPathfinder: trivial same-account same-asset";
+        return true;
+    }
 
     // Find abstract paths on the asset graph.
     // kMaxK = 6: we want at most 6 paths for the subscriber.

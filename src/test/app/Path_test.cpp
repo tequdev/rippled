@@ -850,6 +850,45 @@ public:
     }
 
     void
+    sameCurrencyDifferentIssuerSelfPayment()
+    {
+        testcase("path find self payment with same currency and different issuers");
+        using namespace jtx;
+
+        Env env = pathTestEnv();
+        Account const alice{"alice"};
+        Account const bob{"bob"};
+        Account const trader{"trader"};
+        Account const maker{"maker"};
+        auto const aliceUSD = alice["USD"];
+        auto const bobUSD = bob["USD"];
+
+        env.fund(XRP(10000), alice, bob, trader, maker);
+        env.close();
+        env.trust(aliceUSD(1000), trader, maker);
+        env.trust(bobUSD(1000), trader, maker);
+        env.close();
+        env(pay(alice, trader, aliceUSD(100)));
+        env(pay(bob, maker, bobUSD(100)));
+        env.close();
+        env(offer(maker, aliceUSD(100), bobUSD(100)));
+        env.close();
+
+        auto const [paths, sourceAmount, destinationAmount] = jtx::findPaths(
+            env,
+            trader,
+            trader,
+            bobUSD(10),
+            std::nullopt,
+            PathAsset{aliceUSD.currency},
+            alice.id());
+
+        BEAST_EXPECT(equal(destinationAmount, bobUSD(10)));
+        BEAST_EXPECT(equal(sourceAmount, aliceUSD(10)));
+        BEAST_EXPECT(std::ranges::find(paths, stpath(ipe(bobUSD))) != paths.end());
+    }
+
+    void
     qualityPathsQualitySetAndTest()
     {
         testcase("quality set and test");
@@ -2828,6 +2867,7 @@ public:
         directPathNoIntermediary();
         paymentAutoPathFind();
         indirectPathsPathFind();
+        sameCurrencyDifferentIssuerSelfPayment();
         alternativePathsConsumeBestTransferFirst();
         issuesPathNegativeRippleClientIssue23Smaller();
         issuesPathNegativeRippleClientIssue23Larger();
